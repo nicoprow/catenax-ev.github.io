@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkcatenax_ev_github_io_new=globalThis.webpackChunkcatenax_ev_github_io_new||[]).push([[81903],{1912(a){a.exports=JSON.parse('{"blogBasePath":"/branch/docs-standards-0135-push-pull-harmonization/blog-releasenotes","blogTitle":"Blog","authorsListPath":"/branch/docs-standards-0135-push-pull-harmonization/blog-releasenotes/authors"}')}}]);
