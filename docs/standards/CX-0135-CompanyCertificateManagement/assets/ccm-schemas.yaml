@@ -1,0 +1,202 @@
+# Shared CCM certificate data-model schemas.
+#
+# Defined once here and referenced by both the Certificate Provider API
+# (certificate-provider-api.yaml) and the Certificate Consumer API
+# (certificate-consumer-api.yaml), so the certificate record has a single source
+# of truth (CX-0135 §4). Per-context presence/strictness is layered on by the
+# referencing documents and the standard prose:
+#   - GET /certificates/{id} and /certificates/search wrap `Certificate` to make
+#     the full record mandatory and MUST NOT include document `contentBase64`
+#     (CX-0135 §3.3.2).
+#   - Lifecycle notifications embed `Certificate` as `data.certificate`; the
+#     populated field set depends on the consumer's API subject (CX-0135 §3.2.1).
+components:
+  schemas:
+    Certificate:
+      type: object
+      description: |
+        The certificate record (CX-0135 §4). Only `certificateId` is always
+        required at the schema level; which further fields are mandatory depends
+        on the context (retrieval vs. notification, and — for notifications — the
+        consumer's API subject), as defined by CX-0135 §3.3.2 and §3.2.1.
+      required:
+        - certificateId
+      properties:
+        certificateId:
+          type: string
+          description: Unique identifier of the certificate.
+          example: "cert-550e8400-e29b-41d4-a716-446655440000"
+        revision:
+          type: integer
+          description: The certificate revision (see CX-0135 §4.2.11).
+          example: 1
+        certificateType:
+          type: string
+          description: Opaque string identifying the certificate type (e.g. `iso9001`).
+          example: "iso9001"
+        certificateTypeVersion:
+          type: string
+          description: |
+            The version of the certificate type itself (e.g. `2015` for
+            ISO 9001:2015). Distinct from the certificate's `revision`.
+          example: "2015"
+        registrationNumber:
+          type: string
+          description: The certificate's registration number at the issuing body.
+          example: "12 100 4711"
+        validFrom:
+          type: string
+          format: date
+          description: |
+            Inclusive start date of the certificate validity period
+            (ISO 8601 full-date, `YYYY-MM-DD`).
+          example: "2023-01-25"
+        validUntil:
+          type: string
+          format: date
+          description: |
+            Inclusive end date of the certificate validity period
+            (ISO 8601 full-date, `YYYY-MM-DD`).
+          example: "2026-01-24"
+        trustLevel:
+          type: string
+          enum: [low, medium, high]
+          description: The degree to which the certificate has been validated.
+        areaOfApplication:
+          type: string
+          description: |
+            Free-text detail of the areas or application types the certificate is
+            valid for overall. Individual locations MAY narrow this via
+            `CertifiedLocation.areaOfApplication`.
+        certifiedLocations:
+          type: array
+          minItems: 1
+          description: |
+            The certified locations the certificate applies to (CX-0135 §4.2.4).
+            Exactly one entry MUST have `locationRole: MAIN_LOCATION`; its `bpnl`
+            is the certificate holder.
+          items:
+            $ref: '#/components/schemas/CertifiedLocation'
+        issuer:
+          $ref: '#/components/schemas/CertificateIssuer'
+        validator:
+          $ref: '#/components/schemas/CertificateValidator'
+        documents:
+          type: array
+          description: |
+            Documents associated with this certificate revision. Each entry is a
+            reference; the binary is retrieved via `GET /documents/{id}`, except
+            in a lifecycle notification to a consumer registered under the
+            `…ConsumerEmbeddedDocumentApi` subject, where each entry additionally
+            carries `contentBase64` (CX-0135 §3.2.1).
+          items:
+            $ref: '#/components/schemas/CertificateDocument'
+
+    CertifiedLocation:
+      type: object
+      description: |
+        One certified location as stated on the certificate (CX-0135 §4.2.4).
+        Exactly one entry in `certifiedLocations` MUST have
+        `locationRole: MAIN_LOCATION`; its `bpnl` is the certificate holder.
+      required:
+        - bpnl
+        - bpna
+        - locationRole
+      properties:
+        bpnl:
+          type: string
+          description: |
+            Legal entity the location belongs to. For the `MAIN_LOCATION` entry
+            this is also the certificate holder.
+          pattern: "^BPNL[a-zA-Z0-9]{12}$"
+        bpna:
+          type: string
+          description: Golden Record address anchor. Mandatory for every entry.
+          pattern: "^BPNA[a-zA-Z0-9]{12}$"
+        bpns:
+          type: string
+          description: |
+            Site the BPNA is assigned to in the Golden Record. MUST be present if
+            the BPNA is assigned to at least one site, omitted otherwise.
+          pattern: "^BPNS[a-zA-Z0-9]{12}$"
+        locationRole:
+          type: string
+          enum: [MAIN_LOCATION, ENCLOSED_LOCATION, REMOTE_SUPPORT_LOCATION, EXTENDED_MANUFACTURING_SITE]
+          description: The role of the location as stated on the certificate.
+        areaOfApplication:
+          type: string
+          description: |
+            Verbatim location-specific scope, set only if explicitly printed on
+            the certificate or its annex.
+
+    CertificateIssuer:
+      type: object
+      description: The authority that issued the certificate.
+      required:
+        - issuerName
+      properties:
+        issuerName:
+          type: string
+          description: The name of the issuing authority (e.g. `TÜV Süd`).
+        issuerBpn:
+          type: string
+          description: The BPNL of the issuing authority, if a Catena-X business partner.
+          pattern: "^BPNL[a-zA-Z0-9]{12}$"
+
+    CertificateValidator:
+      type: object
+      description: The party that can validate the certificate information.
+      required:
+        - validatorName
+      properties:
+        validatorName:
+          type: string
+          description: The name of the validator.
+        validatorBpn:
+          type: string
+          description: |
+            The BPNL of the validator. MAY be used as a free-text identifier where
+            a BPNL is not available.
+
+    CertificateDocument:
+      type: object
+      description: |
+        A certificate document. By default a reference whose binary is retrieved
+        via `GET /documents/{id}`. When embedded in a lifecycle notification to a
+        consumer registered under the `…ConsumerEmbeddedDocumentApi` subject, it
+        additionally carries the binary inline as `contentBase64` (CX-0135
+        §3.2.1). `contentBase64` MUST NOT be present in a `GET /certificates/{id}`
+        or `/certificates/search` response (CX-0135 §3.3.2).
+      required:
+        - documentId
+        - createdDate
+        - mediaType
+      properties:
+        documentId:
+          type: string
+          description: |
+            Opaque, revision-independent identifier of the document, used to
+            retrieve it via `GET /documents/{id}`.
+          example: "doc-3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        createdDate:
+          type: string
+          format: date
+          description: The date the document was created (ISO 8601 full-date, `YYYY-MM-DD`).
+          example: "2023-01-25"
+        language:
+          type: string
+          description: |
+            Language of the document as an ISO 639-1 two-letter code (e.g. `en`,
+            `de`). Distinguishes documents that differ only by language.
+          pattern: "^[a-z]{2}$"
+          example: "en"
+        mediaType:
+          type: string
+          description: IANA media type of the document binary.
+          example: "application/pdf"
+        contentBase64:
+          type: string
+          format: byte
+          description: |
+            Base64-encoded document binary. Present only when the document is
+            embedded inline in a lifecycle notification (CX-0135 §3.2.1).
