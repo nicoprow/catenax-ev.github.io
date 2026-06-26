@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunkcatenax_ev_github_io_new=globalThis.webpackChunkcatenax_ev_github_io_new||[]).push([[81903],{1912(s){s.exports=JSON.parse('{"blogBasePath":"/branch/docs-standards-0074-multi-script/blog-releasenotes","blogTitle":"Blog","authorsListPath":"/branch/docs-standards-0074-multi-script/blog-releasenotes/authors"}')}}]);
